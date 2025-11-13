@@ -3,7 +3,6 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
-    // kapt sin versión, directo
     id("org.jetbrains.kotlin.kapt")
 }
 
@@ -69,12 +68,15 @@ dependencies {
     // DATASTORE
     implementation(libs.androidx.datastore.preferences)
 
-    // KTOR CLIENT (2.3.12)
+    // KTOR CLIENT
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.okhttp)
     implementation(libs.ktor.client.content.negotiation)
     implementation(libs.ktor.serialization.kotlinx.json)
 
-    // Kotlinx Serialization JSON (1.7.3)
+    // Kotlinx Serialization JSON
     implementation(libs.kotlinx.serialization.json)
+
+    // NAVEGACIÓN COMPOSE (Type-Safe)
+    implementation(libs.androidx.navigation.compose)
 }

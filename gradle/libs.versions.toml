@@ -12,10 +12,11 @@ composeBom = "2024.09.00"
 # Librerías extra
 room = "2.8.3"
 datastore = "1.1.2"
-
-# 👇 Ajustado para que sea compatible con Kotlin 2.0.21
 ktor = "2.3.12"
 kotlinx-serialization = "1.7.3"
+
+# Navegación
+navigation-compose = "2.8.5"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -41,14 +42,17 @@ androidx-room-compiler = { group = "androidx.room", name = "room-compiler", vers
 # DATASTORE (clave-valor)
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
 
-# KTOR CLIENT (HTTP) – versión 2.3.12
+# KTOR CLIENT (HTTP)
 ktor-client-core = { group = "io.ktor", name = "ktor-client-core", version.ref = "ktor" }
 ktor-client-okhttp = { group = "io.ktor", name = "ktor-client-okhttp", version.ref = "ktor" }
 ktor-client-content-negotiation = { group = "io.ktor", name = "ktor-client-content-negotiation", version.ref = "ktor" }
 ktor-serialization-kotlinx-json = { group = "io.ktor", name = "ktor-serialization-kotlinx-json", version.ref = "ktor" }
 
-# Kotlinx Serialization JSON – 1.7.3
+# Kotlinx Serialization JSON
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
+
+# NAVEGACIÓN COMPOSE
+androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigation-compose" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
