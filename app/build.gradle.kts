@@ -79,4 +79,8 @@ dependencies {
 
     // NAVEGACIÓN COMPOSE (Type-Safe)
     implementation(libs.androidx.navigation.compose)
+
+    // VIEWMODEL COMPOSE
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.runtime.compose)
 }

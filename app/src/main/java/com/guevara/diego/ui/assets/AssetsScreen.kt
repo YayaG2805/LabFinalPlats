@@ -1,6 +1,5 @@
 package com.guevara.diego.ui.assets
 
-import android.content.Context
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -10,61 +9,28 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.guevara.diego.data.datastore.PreferencesManager
-import com.guevara.diego.data.local.AppDatabase
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.guevara.diego.data.local.AssetEntity
-import com.guevara.diego.data.network.ApiClient
-import kotlinx.coroutines.launch
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
-
-sealed class UiState {
-    object Loading : UiState()
-    data class Success(val isOnline: Boolean) : UiState()
-    data class Error(val message: String, val hasLocalData: Boolean) : UiState()
-}
 
 @Composable
 fun AssetsScreen(
-    context: Context,
     onClickAsset: (String) -> Unit
 ) {
-    val scope = rememberCoroutineScope()
-    val db = remember { AppDatabase.getInstance(context) }
-
-    var assets by remember { mutableStateOf<List<AssetEntity>>(emptyList()) }
-    var uiState by remember { mutableStateOf<UiState>(UiState.Loading) }
-    var lastSavedDate by remember { mutableStateOf<String?>(null) }
-
-    // Leer última fecha guardada desde DataStore
-    LaunchedEffect(Unit) {
-        PreferencesManager.lastUpdateFlow(context).collect { value ->
-            lastSavedDate = value
-        }
-    }
-
-    // Cargar datos al iniciar
-    LaunchedEffect(Unit) {
-        loadData(
-            db = db,
-            onSuccess = { loadedAssets, isOnline ->
-                assets = loadedAssets
-                uiState = UiState.Success(isOnline)
-            },
-            onError = { hasLocalData ->
-                if (hasLocalData) {
-                    scope.launch {
-                        assets = db.assetDao().getAll()
-                        uiState = UiState.Error("Sin conexión a internet", hasLocalData = true)
-                    }
-                } else {
-                    uiState = UiState.Error("Sin conexión y sin datos guardados", hasLocalData = false)
-                }
-            }
+    val context = LocalContext.current
+    val viewModel: AssetsViewModel = viewModel(
+        factory = AssetsViewModel.Factory(
+            repository = com.guevara.diego.data.repository.AssetRepository(
+                com.guevara.diego.data.local.AppDatabase.getInstance(context).assetDao()
+            ),
+            context = context
         )
-    }
+    )
+
+    val uiState by viewModel.uiState.collectAsState()
+    val lastSavedDate by viewModel.lastSavedDate.collectAsState()
 
     Column(
         modifier = Modifier
@@ -90,19 +56,8 @@ fun AssetsScreen(
 
         // Botón para guardar offline
         Button(
-            onClick = {
-                scope.launch {
-                    if (uiState is UiState.Success && (uiState as UiState.Success).isOnline) {
-                        val now = LocalDateTime.now()
-                        val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")
-                        val formattedDate = now.format(formatter)
-
-                        PreferencesManager.saveLastUpdate(context, formattedDate)
-                        lastSavedDate = formattedDate
-                    }
-                }
-            },
-            enabled = uiState is UiState.Success && (uiState as UiState.Success).isOnline,
+            onClick = { viewModel.saveForOffline() },
+            enabled = uiState is AssetsUiState.Success && (uiState as AssetsUiState.Success).isOnline,
             modifier = Modifier.fillMaxWidth()
         ) {
             Text("Guardar para ver offline")
@@ -111,8 +66,8 @@ fun AssetsScreen(
         Spacer(Modifier.height(16.dp))
 
         // Contenido según el estado
-        when (uiState) {
-            is UiState.Loading -> {
+        when (val state = uiState) {
+            is AssetsUiState.Loading -> {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -124,8 +79,8 @@ fun AssetsScreen(
                     }
                 }
             }
-            is UiState.Success, is UiState.Error -> {
-                if (assets.isEmpty()) {
+            is AssetsUiState.Success -> {
+                if (state.assets.isEmpty()) {
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
@@ -139,11 +94,32 @@ fun AssetsScreen(
                     LazyColumn(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items(assets) { asset ->
+                        items(state.assets) { asset ->
                             AssetItem(
                                 asset = asset,
                                 onClick = { onClickAsset(asset.id) }
                             )
+                        }
+                    }
+                }
+            }
+            is AssetsUiState.Error -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Text(
+                            text = state.message,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        Button(onClick = { viewModel.loadAssets() }) {
+                            Text("Reintentar")
                         }
                     }
                 }
@@ -154,11 +130,11 @@ fun AssetsScreen(
 
 @Composable
 fun StatusIndicator(
-    uiState: UiState,
+    uiState: AssetsUiState,
     lastSavedDate: String?
 ) {
     when (uiState) {
-        is UiState.Success -> {
+        is AssetsUiState.Success -> {
             if (uiState.isOnline) {
                 Card(
                     colors = CardDefaults.cardColors(
@@ -171,9 +147,7 @@ fun StatusIndicator(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(
-                            modifier = Modifier
-                                .size(12.dp)
-                                .padding(end = 8.dp)
+                            modifier = Modifier.size(12.dp)
                         ) {
                             Surface(
                                 shape = MaterialTheme.shapes.small,
@@ -188,10 +162,7 @@ fun StatusIndicator(
                         )
                     }
                 }
-            }
-        }
-        is UiState.Error -> {
-            if (uiState.hasLocalData && lastSavedDate != null) {
+            } else if (lastSavedDate != null) {
                 Card(
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.tertiaryContainer
@@ -203,9 +174,7 @@ fun StatusIndicator(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(
-                            modifier = Modifier
-                                .size(12.dp)
-                                .padding(end = 8.dp)
+                            modifier = Modifier.size(12.dp)
                         ) {
                             Surface(
                                 shape = MaterialTheme.shapes.small,
@@ -286,45 +255,6 @@ fun AssetItem(
                     )
                 }
             }
-        }
-    }
-}
-
-suspend fun loadData(
-    db: AppDatabase,
-    onSuccess: (List<AssetEntity>, Boolean) -> Unit,
-    onError: (Boolean) -> Unit
-) {
-    try {
-        // Intentar obtener datos del API
-        val remote = ApiClient.getAssets()
-
-        val mapped = remote.map {
-            AssetEntity(
-                id = it.id,
-                name = it.name,
-                symbol = it.symbol,
-                priceUsd = it.priceUsd.toDoubleOrNull() ?: 0.0,
-                changePercent24Hr = it.changePercent24Hr.toDoubleOrNull() ?: 0.0,
-                supply = it.supply?.toDoubleOrNull(),
-                maxSupply = it.maxSupply?.toDoubleOrNull(),
-                marketCapUsd = it.marketCapUsd?.toDoubleOrNull(),
-                lastUpdated = LocalDateTime.now().toString()
-            )
-        }
-
-        // Guardar en DB (cache temporal en memoria)
-        db.assetDao().insertAll(mapped)
-        val assets = db.assetDao().getAll()
-
-        onSuccess(assets, true)
-    } catch (e: Exception) {
-        // Si hay error, intentar cargar desde DB
-        val localAssets = db.assetDao().getAll()
-        if (localAssets.isNotEmpty()) {
-            onError(true)
-        } else {
-            onError(false)
         }
     }
 }

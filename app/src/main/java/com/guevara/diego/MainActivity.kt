@@ -30,7 +30,6 @@ class MainActivity : ComponentActivity() {
                         // Pantalla de lista de assets
                         composable<AssetsListDestination> {
                             AssetsScreen(
-                                context = this@MainActivity,
                                 onClickAsset = { assetId ->
                                     navController.navigate(
                                         AssetDetailDestination(assetId = assetId)
@@ -44,7 +43,6 @@ class MainActivity : ComponentActivity() {
                             val destination = backStackEntry.toRoute<AssetDetailDestination>()
 
                             DetailScreen(
-                                context = this@MainActivity,
                                 assetId = destination.assetId,
                                 onBack = {
                                     navController.popBackStack()

@@ -1,6 +1,5 @@
 package com.guevara.diego.ui.detail
 
-import android.content.Context
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -9,70 +8,33 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.guevara.diego.data.datastore.PreferencesManager
-import com.guevara.diego.data.local.AppDatabase
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.guevara.diego.data.local.AssetEntity
-import com.guevara.diego.data.network.ApiClient
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
-
-sealed class DetailUiState {
-    object Loading : DetailUiState()
-    data class Success(val asset: AssetEntity, val isOnline: Boolean) : DetailUiState()
-    data class Error(val message: String) : DetailUiState()
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DetailScreen(
-    context: Context,
     assetId: String,
     onBack: () -> Unit
 ) {
-    val db = remember { AppDatabase.getInstance(context) }
-    var uiState by remember { mutableStateOf<DetailUiState>(DetailUiState.Loading) }
-    var lastSavedDate by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
+    val viewModel: DetailViewModel = viewModel(
+        factory = DetailViewModel.Factory(
+            assetId = assetId,
+            repository = com.guevara.diego.data.repository.AssetRepository(
+                com.guevara.diego.data.local.AppDatabase.getInstance(context).assetDao()
+            ),
+            context = context
+        )
+    )
 
-    // Leer última fecha guardada
-    LaunchedEffect(Unit) {
-        PreferencesManager.lastUpdateFlow(context).collect { value ->
-            lastSavedDate = value
-        }
-    }
-
-    // Cargar datos del asset
-    LaunchedEffect(assetId) {
-        try {
-            // Intentar obtener del API
-            val dto = ApiClient.getAsset(assetId)
-
-            val mapped = AssetEntity(
-                id = dto.id,
-                name = dto.name,
-                symbol = dto.symbol,
-                priceUsd = dto.priceUsd.toDoubleOrNull() ?: 0.0,
-                changePercent24Hr = dto.changePercent24Hr.toDoubleOrNull() ?: 0.0,
-                supply = dto.supply?.toDoubleOrNull(),
-                maxSupply = dto.maxSupply?.toDoubleOrNull(),
-                marketCapUsd = dto.marketCapUsd?.toDoubleOrNull(),
-                lastUpdated = LocalDateTime.now().toString()
-            )
-
-            // Actualizar en DB
-            db.assetDao().insertAll(listOf(mapped))
-            uiState = DetailUiState.Success(mapped, isOnline = true)
-        } catch (e: Exception) {
-            // Si falla, intentar cargar desde DB
-            val local = db.assetDao().getById(assetId)
-            if (local != null) {
-                uiState = DetailUiState.Success(local, isOnline = false)
-            } else {
-                uiState = DetailUiState.Error("No se pudo cargar la información")
-            }
-        }
-    }
+    val uiState by viewModel.uiState.collectAsState()
+    val lastSavedDate by viewModel.lastSavedDate.collectAsState()
 
     Scaffold(
         topBar = {
